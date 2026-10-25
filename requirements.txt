@@ -1,0 +1,7 @@
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pydantic>=2.6
+numpy>=1.26
+faiss-cpu>=1.8
+google-genai>=1.0
+python-dotenv>=1.0

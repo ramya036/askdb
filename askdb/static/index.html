@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AskDB</title>
+<style>
+  :root { --bg:#f7f7f5; --card:#fff; --ink:#1d1d1f; --muted:#6b6b70; --line:#e3e3e0; --accent:#2f5bea; --err:#b42318; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#141416; --card:#1d1d20; --ink:#ececee; --muted:#9a9aa1; --line:#2d2d31; --accent:#7b9bff; --err:#ff8a80; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.5 system-ui, sans-serif; background:var(--bg); color:var(--ink); }
+  main { max-width: 880px; margin: 0 auto; padding: 40px 16px; }
+  h1 { margin:0 0 4px; font-size: 28px; }
+  p.sub { margin:0 0 24px; color:var(--muted); }
+  form { display:flex; gap:8px; }
+  input { flex:1; padding:12px 14px; border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--ink); font-size:15px; }
+  button { padding:12px 18px; border:0; border-radius:10px; background:var(--accent); color:#fff; font-weight:600; cursor:pointer; }
+  button:disabled { opacity:.6; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin:12px 0 24px; }
+  .chip { padding:6px 10px; border:1px solid var(--line); border-radius:999px; background:var(--card); color:var(--muted); font-size:13px; cursor:pointer; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:16px; overflow-x:auto; }
+  pre { margin:0; white-space:pre-wrap; font:13px/1.5 ui-monospace, monospace; }
+  .meta { color:var(--muted); font-size:13px; margin-top:8px; }
+  .err { color:var(--err); }
+  table { border-collapse:collapse; width:100%; font-size:13px; }
+  th, td { text-align:left; padding:6px 10px; border-bottom:1px solid var(--line); }
+  th { color:var(--muted); font-weight:600; }
+</style>
+</head>
+<body>
+<main>
+  <h1>AskDB</h1>
+  <p class="sub">Ask a question about the clinical database in plain English.</p>
+  <form id="f"><input id="q" placeholder="e.g. Which medications are prescribed most for heart failure?" autocomplete="off"><button id="b">Ask</button></form>
+  <div class="chips" id="chips"></div>
+  <div id="out"></div>
+</main>
+<script>
+const samples = ["How many patients live in Georgia?", "Average HbA1c for diabetic patients by gender",
+  "Top 3 providers by number of emergency visits", "Patients with more than 2 inpatient stays"];
+const chips = document.getElementById('chips'), out = document.getElementById('out'), q = document.getElementById('q'), b = document.getElementById('b');
+samples.forEach(s => { const c = document.createElement('span'); c.className = 'chip'; c.textContent = s; c.onclick = () => { q.value = s; ask(); }; chips.appendChild(c); });
+const esc = s => String(s ?? '').replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+document.getElementById('f').onsubmit = e => { e.preventDefault(); ask(); };
+async function ask() {
+  if (!q.value.trim()) return;
+  b.disabled = true; out.innerHTML = '<div class="card meta">Thinking…</div>';
+  try {
+    const r = await fetch('/api/ask', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ question: q.value }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || 'Request failed');
+    let html = `<div class="card"><pre>${esc(d.sql)}</pre><div class="meta">Tables used: ${esc(d.context.tables.join(', '))} · attempts: ${d.attempts}</div></div>`;
+    if (d.error) html += `<div class="card err">${esc(d.error)}</div>`;
+    if (d.result) {
+      const { columns, rows, truncated } = d.result;
+      html += `<div class="card"><table><thead><tr>${columns.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(v => `<td>${esc(v)}</td>`).join('')}</tr>`).join('')}</tbody></table><div class="meta">${rows.length} row(s)${truncated ? ' (truncated)' : ''}</div></div>`;
+    }
+    out.innerHTML = html;
+  } catch (e) { out.innerHTML = `<div class="card err">${esc(e.message)}</div>`; }
+  finally { b.disabled = false; }
+}
+</script>
+</body>
+</html>
