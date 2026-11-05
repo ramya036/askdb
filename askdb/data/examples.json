@@ -1,0 +1,34 @@
+[
+  {
+    "question": "How many patients are there in each state?",
+    "sql": "SELECT state, COUNT(*) AS patient_count FROM patients GROUP BY state ORDER BY patient_count DESC"
+  },
+  {
+    "question": "Which diagnoses are most common?",
+    "sql": "SELECT d.description, COUNT(*) AS cases FROM diagnoses d GROUP BY d.description ORDER BY cases DESC"
+  },
+  {
+    "question": "What is the average length of stay for inpatient encounters by diagnosis?",
+    "sql": "SELECT d.description, ROUND(AVG(e.length_of_stay_days), 2) AS avg_los_days FROM encounters e JOIN diagnoses d ON d.encounter_id = e.encounter_id WHERE e.encounter_type = 'inpatient' GROUP BY d.description ORDER BY avg_los_days DESC"
+  },
+  {
+    "question": "List diabetic patients whose HbA1c is above 9",
+    "sql": "SELECT DISTINCT p.patient_id, p.first_name, p.last_name, l.value AS hba1c FROM patients p JOIN encounters e ON e.patient_id = p.patient_id JOIN diagnoses d ON d.encounter_id = e.encounter_id JOIN lab_results l ON l.encounter_id = e.encounter_id WHERE d.icd10_code = 'E11.9' AND l.test_name = 'HbA1c' AND l.value > 9 ORDER BY hba1c DESC"
+  },
+  {
+    "question": "Which medications are prescribed most often?",
+    "sql": "SELECT drug_name, COUNT(*) AS prescriptions FROM medications GROUP BY drug_name ORDER BY prescriptions DESC"
+  },
+  {
+    "question": "How many encounters did each provider have?",
+    "sql": "SELECT pr.full_name, pr.specialty, COUNT(e.encounter_id) AS encounters FROM providers pr LEFT JOIN encounters e ON e.provider_id = pr.provider_id GROUP BY pr.provider_id ORDER BY encounters DESC"
+  },
+  {
+    "question": "How many emergency visits happened each month in 2024?",
+    "sql": "SELECT strftime('%Y-%m', encounter_date) AS month, COUNT(*) AS emergency_visits FROM encounters WHERE encounter_type = 'emergency' AND encounter_date BETWEEN '2024-01-01' AND '2024-12-31' GROUP BY month ORDER BY month"
+  },
+  {
+    "question": "What is the average age of patients with hypertension?",
+    "sql": "SELECT ROUND(AVG((julianday('now') - julianday(p.birth_date)) / 365.25), 1) AS avg_age FROM patients p WHERE p.patient_id IN (SELECT e.patient_id FROM encounters e JOIN diagnoses d ON d.encounter_id = e.encounter_id WHERE d.icd10_code = 'I10')"
+  }
+]
